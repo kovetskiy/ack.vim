@@ -29,22 +29,27 @@ function! ack#Ack(cmd, args) "{{{
   " If no pattern is provided, search for the word under the cursor
   let l:grepargs = empty(a:args) ? expand("<cword>") : a:args . join(a:000, ' ')
 
-  " NOTE: we escape special chars, but not everything using shellescape to
-  "       allow for passing arguments etc
-  let l:escaped_args = escape(l:grepargs, '|#%')
+  let l:escaped_args = []
+  let l:args = split(l:grepargs, ' | ')
+  for arg in l:args
+      call add(l:escaped_args, escape(arg, "|#%'"))
+  endfor
+
+  let l:highlight = '\(' . join(l:args, '\)\|\(') . '\)'
+  let l:query = "-e '" . join(l:escaped_args, "' -e '") . "'"
 
   echo "Searching ..."
 
   if g:ack_use_dispatch
-    call s:SearchWithDispatch(l:grepprg, l:escaped_args, l:grepformat)
+    call s:SearchWithDispatch(l:grepprg, l:query, l:grepformat)
   else
-    call s:SearchWithGrep(a:cmd, l:grepprg, l:escaped_args, l:grepformat)
+    call s:SearchWithGrep(a:cmd, l:grepprg, l:query, l:grepformat)
   endif
 
   " Dispatch has no callback mechanism currently, we just have to display the
   " list window early and wait for it to populate :-/
   call ack#ShowResults()
-  call s:Highlight(l:grepargs)
+  call s:Highlight(l:highlight)
 endfunction "}}}
 
 function! ack#AckFromSearch(cmd, args) "{{{
@@ -131,12 +136,12 @@ function! s:GetDocLocations() "{{{
   return dp
 endfunction "}}}
 
-function! s:Highlight(args) "{{{
+function! s:Highlight(query) "{{{
   if !g:ackhighlight
     return
   endif
 
-  let @/ = matchstr(a:args, "\\v(-)\@<!(\<)\@<=\\w+|['\"]\\zs.{-}\\ze['\"]")
+  let @/ = a:query
   call feedkeys(":let &hlsearch=1 \| echo \<CR>", "n")
 endfunction "}}}
 
